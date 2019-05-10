@@ -164,7 +164,7 @@ def dijkstra_path(G, source, target, weight='weight'):
     return path
 
 
-def dijkstra_path_length(G, source, target, weight='weight'):
+def dijkstra_path_length(G, source, target, weight='weight', gridlist=None):
     """Returns the shortest weighted path length in G from source to target.
 
     Uses Dijkstra's Method to compute the shortest weighted path length
@@ -228,10 +228,22 @@ def dijkstra_path_length(G, source, target, weight='weight'):
     """
     if source == target:
         return 0
-    weight = _weight_function(G, weight)
-    length = _dijkstra(G, source, weight, target=target)
+
+    if gridlist is None:
+
+        weight = _weight_function(G, weight)
+        length = _dijkstra(G, source, weight, target=target)
+
+    else:
+
+        weight = _weight_function(G, weight)
+        length, return_target = _dijkstra(G, source, weight, target=target, gridlist=gridlist)
+
     try:
-        return length[target]
+        if gridlist is not None:
+            return length[return_target], return_target
+        else:
+            return length[target]
     except KeyError:
         raise nx.NetworkXNoPath(
             "Node %s not reachable from %s" % (target, source))
@@ -739,7 +751,7 @@ def multi_source_dijkstra(G, sources, target=None, cutoff=None,
 
 
 def _dijkstra(G, source, weight, pred=None, paths=None, cutoff=None,
-              target=None):
+              target=None, gridlist=None):
     """Uses Dijkstra's algorithm to find shortest weighted paths from a
     single source.
 
@@ -748,12 +760,16 @@ def _dijkstra(G, source, weight, pred=None, paths=None, cutoff=None,
     `sources` set to ``[source]``.
 
     """
-    return _dijkstra_multisource(G, [source], weight, pred=pred, paths=paths,
-                                 cutoff=cutoff, target=target)
+    if gridlist is None:
+        return _dijkstra_multisource(G, [source], weight, pred=pred, paths=paths,
+                                    cutoff=cutoff, target=target)
+    else:
+        return _dijkstra_multisource(G, [source], weight, pred=pred, paths=paths,
+                                    cutoff=cutoff, target=target, gridlist=gridlist)
 
 
 def _dijkstra_multisource(G, sources, weight, pred=None, paths=None,
-                          cutoff=None, target=None):
+                          cutoff=None, target=None, gridlist=None):
     """Uses Dijkstra's algorithm to find shortest weighted paths
 
     Parameters
@@ -822,6 +838,16 @@ def _dijkstra_multisource(G, sources, weight, pred=None, paths=None,
         if v in dist:
             continue  # already searched this node.
         dist[v] = d
+
+        # this line is added to check whether the point is within the list of road pixels
+        if target is None:
+            if gridlist is None:
+                continue
+            else:
+                if isinstance(gridlist, list) and v in gridlist:
+                    return dist, v
+                    break
+
         if v == target:
             break
         for u, e in G_succ[v].items():
